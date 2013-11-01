@@ -1,0 +1,9 @@
+Package: enigma2-plugin-extensions-e2iptv-ozo
+Version: 1.0.0
+Depends: enigma2-plugin-extensions-e2iptv (>= 1.0.0)
+Description: enigma2 iptv ozo player
+Section: extra
+Priority: optional
+Maintainer: Alex Revetchi <alex.revetchi@gmail.com>
+License: GNU GPLv2
+Architecture: all
