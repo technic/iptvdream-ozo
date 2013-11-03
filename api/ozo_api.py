@@ -118,6 +118,30 @@ class Ktv(OzoAPI, AbstractStream):
 	def __init__(self, username, password):
 		OzoAPI.__init__(self, username, password)
 		AbstractStream.__init__(self)
+
+        def epg_entry(self, e):                                                                                                               
+                txt   = e['title'].encode('utf-8') + '\n' + e['info'].encode('utf-8')                                                         
+                start = datetime.fromtimestamp(int(e['begin'])+ts_fix)                                                                        
+                end   = datetime.fromtimestamp(int(e['end'])+ts_fix)                                                                          
+                return (txt,start,end)
+
+	def channel_day_epg(self, channel):
+		if not 'epg' in channel: return
+		for e in channel['epg']:
+			if 'time_shift' in e: ts_fix = int(e["time_shift"])
+			else: ts_fix =self.time_shift
+			yield self.epg_entry(e)
+
+	def channel_epg_current(self, channel):
+		if not 'epg' in channel: return
+		ch = channel['epg']
+		ts_fix =self.time_shift
+		if 'time_shift' in ch:
+			ts_fix = int(ch["time_shift"])
+		for typ in ['current', 'next']:
+			if not typ in ch: continue 
+			yield self.epg_entry(ch[typ])
+
 	def setChannelsList(self):
 		params = urllib.urlencode({"with_epg":''}) 
 		response = self.getData(self.site+"/get_list_tv?"+params, "channels list")
@@ -132,27 +156,9 @@ class Ktv(OzoAPI, AbstractStream):
 				archive = ('has_archive' in channel) and (int(channel['has_archive']))
 				self.channels[id] = Channel(name, groupname, num, gid, archive)
 				self.channels[id].is_protected = ('protected' in channel) and (int(channel['protected']))
-				if 'epg' in channel and 'current' in channel['epg']:
-					ts_fix = 0
-					if 'time_shift' in channel['epg']:
-						ts_fix = int(channel["epg"]["time_shift"])
-					prog = channel['epg']['current']
-					txt = prog['title'].encode('utf-8') + '\n' + prog['info'].encode('utf-8')
-					t_start = datetime.fromtimestamp(int(prog['begin'])+ts_fix)
-					t_end = datetime.fromtimestamp(int(prog['end'])+ts_fix)
-					self.channels[id].epg = EpgEntry(txt, t_start, t_end)
-				if 'epg' in channel and 'next' in channel['epg']:
-					ts_fix = 0
-					if 'time_shift' in channel['epg']:
-						ts_fix = int(channel["epg"]["time_shift"])
-					prog = channel['epg']['next']
-					txt = prog['title'].encode('utf-8') + '\n' + prog['info'].encode('utf-8')
-					t_start = datetime.fromtimestamp(int(prog['begin'])+ts_fix)
-					t_end = datetime.fromtimestamp(int(prog['end'])+ts_fix)
-					self.channels[id].nepg = EpgEntry(txt, t_start, t_end)
-				else:
-					#print "[RodnoeTV] there is no epg for id=%d on rtv-server" % id
-					pass
+				for t,s,e in self.channel_epg_current(channel):
+					self.channels[id].epg = EpgEntry(t, s, e)
+					self.channels[id].nepg = EpgEntry(t, s, e)
 
 	def getStreamUrl(self, cid, pin, time = None):
 		params = {"cid": cid, "time_shift": self.time_shift}
@@ -163,53 +169,21 @@ class Ktv(OzoAPI, AbstractStream):
 		response = self.getData(self.site+"/get_url_tv?"+urllib.urlencode(params), "stream url")
 		return response["url"].encode("utf-8")
 	
-	def getChannelsEpg(self, cids): #RodnoeTV hasn't got this function in API. Got epg for all instead.
-		params = {}
-		if len(cids) == 1:
-			params['cid'] = cids[0]
-		response = self.getData(self.site+"/get_epg_current?"+urllib.urlencode(params), "getting epg of all channels")
+	def getChannelsEpg(self, cids):
+		response = self.getData(self.site+"/get_epg_current?"+urllib.urlencode({"cid":','.join(str(c) for c in cids)}), "getting epg of all channels")
 		for prog in response['channels']:
 			id = prog['id']
-			if 'current' in prog and 'begin' in prog and 'title' in prog:
-				ts_fix = self.time_shift *3600
-				if 'time_shift' in channel:
-					int(channel["time_shift"])*60
-				title = prog['title'].encode('utf-8') + '\n' + prog['info'].encode('utf-8')
-				t_start = datetime.fromtimestamp(int(prog['begin'])+ts_fix)
-				t_end = datetime.fromtimestamp(int(prog['end'])+ts_fix)
-				self.channels[id].epg = EpgEntry(title, t_start, t_end)
-			if 'next' in prog and 'begin' in prog and 'title' in prog:
-				ts_fix = self.time_shift *3600
-				if 'time_shift' in channel:
-					int(channel["time_shift"])*60
-				title = prog['title'].encode('utf-8') + '\n' + prog['info'].encode('utf-8')
-				t_start = datetime.fromtimestamp(int(prog['begin'])+ts_fix)
-				t_end = datetime.fromtimestamp(int(prog['end'])+ts_fix)
-				self.channels[id].epg = EpgEntry(title, t_start, t_end)
-			else:
-				self.channels[id].lastUpdateFailed = True
-			#	print "[iptvdream] INFO there is no epg for id=%d on ktv-server" % id
-				pass
+			for t,s,e in self.channel_epg_current(prog):
+				self.channels[id].epg = EpgEntry(t, s, e)
+                                self.channels[id].nepg = EpgEntry(t, s, e)
 	
 	def getCurrentEpg(self, cid):
 		return self.getChannelsEpg([cid])
 	
-	def getDayEpg(self, id, dt = None):
-		if not dt:
-			dt = syncTime() 
+	def on_getDayEpg(self, id, dt):
 		params = {"cid": id,
-				  "from_uts": datetime(dt.year, dt.month, dt.day).strftime('%s'),
-				  "hours" : 24}
+			  "from_uts": datetime(dt.year, dt.month, dt.day).strftime('%s'),
+			  "hours" : 24}
 		response = self.getData(self.site+"/get_epg?"+urllib.urlencode(params), "EPG for channel %s" % id)
-		epglist = []
 		for channel in response['channels']:
-			for prog in channel['epg']:
-				if 'time_shift' in channel:
-					ts_fix = int(channel["time_shift"])*60
-				else:
-					ts_fix = self.time_shift *3600
-				title = prog['title'].encode('utf-8') + '\n' + prog['info'].encode('utf-8')
-				t_start = datetime.fromtimestamp(int(prog['begin'])+ts_fix)
-				t_end = datetime.fromtimestamp(int(prog['end'])+ts_fix)
-				epglist.append (EpgEntry(title, t_start, t_end))
-		self.channels[id].pushEpgSorted(epglist)
+			yield self.channel_day_epg(channel)
