@@ -36,6 +36,7 @@ class OzoAPI(AbstractAPI):
 	
 	iProvider = "ozo"
 	NUMBER_PASS = False
+	HAS_PIN = True
 	
 	site = "http://file-teleport.com/iptv/api/v1/json"
 
