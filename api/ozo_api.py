@@ -36,7 +36,6 @@ class OzoAPI(AbstractAPI):
 	
 	iProvider = "ozo"
 	NUMBER_PASS = False
-	HAS_PIN = True
 	
 	site = "http://file-teleport.com/iptv/api/v1/json"
 
@@ -113,6 +112,7 @@ class Ktv(OzoAPI, AbstractStream):
 	
 	iName = "OzoTV"
 	MODE = MODE_STREAM
+	HAS_PIN = True
 	
 	locked_cids = [155, 156, 157, 158, 159]
 	
