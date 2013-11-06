@@ -15,7 +15,7 @@ import cookielib, urllib, urllib2 #TODO: optimize imports
 from json import loads as json_loads
 from datetime import datetime
 from md5 import md5
-from . import tdSec, secTd, setSyncTime, syncTime, EpgEntry, Channel, Timezone, APIException
+from . import tdSec, secTd, setSyncTime, syncTime, Channel, Timezone, APIException
 
 # hack !
 class JsonWrapper(dict):
@@ -44,7 +44,6 @@ class OzoAPI(AbstractAPI):
 		
 		self.time_shift = 0
 		self.time_zone = 0
-		self.protect_code = ''
 
 		self.cookiejar = cookielib.CookieJar()
 		self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cookiejar))
@@ -108,7 +107,7 @@ class OzoAPI(AbstractAPI):
 		return json 
 
 	
-class Ktv(OzoAPI, AbstractStream):
+class e2iptv(OzoAPI, AbstractStream):
 	
 	iName = "OzoTV"
 	MODE = MODE_STREAM
@@ -120,10 +119,10 @@ class Ktv(OzoAPI, AbstractStream):
 		OzoAPI.__init__(self, username, password)
 		AbstractStream.__init__(self)
 
-        def epg_entry(self, e):                                                                                                               
-                txt   = e['title'].encode('utf-8') + '\n' + e['info'].encode('utf-8')                                                         
-                start = datetime.fromtimestamp(int(e['begin'])+ts_fix)                                                                        
-                end   = datetime.fromtimestamp(int(e['end'])+ts_fix)                                                                          
+        def epg_entry(self, e, ts_fix):
+                txt   = e['title'].encode('utf-8') + '\n' + e['info'].encode('utf-8')
+                start = datetime.fromtimestamp(int(e['begin'])+ts_fix)
+                end   = datetime.fromtimestamp(int(e['end'])+ts_fix)
                 return (txt,start,end)
 
 	def channel_day_epg(self, channel):
@@ -131,17 +130,16 @@ class Ktv(OzoAPI, AbstractStream):
 		for e in channel['epg']:
 			if 'time_shift' in e: ts_fix = int(e["time_shift"])
 			else: ts_fix =self.time_shift
-			yield self.epg_entry(e)
+			yield self.epg_entry(e, ts_fix)
 
 	def channel_epg_current(self, channel):
 		if not 'epg' in channel: return
 		ch = channel['epg']
-		ts_fix =self.time_shift
-		if 'time_shift' in ch:
-			ts_fix = int(ch["time_shift"])
+		if 'time_shift' in ch: ts_fix = int(ch["time_shift"])
+		else: ts_fix =self.time_shift
 		for typ in ['current', 'next']:
 			if not typ in ch: continue 
-			yield self.epg_entry(ch[typ])
+			yield self.epg_entry(ch[typ], ts_fix)
 
 	def setChannelsList(self):
 		params = urllib.urlencode({"with_epg":''}) 
@@ -151,20 +149,19 @@ class Ktv(OzoAPI, AbstractStream):
 			gid = group['id']
 			groupname = group['name'].encode('utf-8')
 			for channel in group['channels']: 
-				id = channel['id']
+				id   = channel['id']
 				name = channel['name'].encode('utf-8')
-				num = channel['number'] 
+				num  = channel['number'] 
 				archive = ('has_archive' in channel) and (int(channel['has_archive']))
 				self.channels[id] = Channel(name, groupname, num, gid, archive)
 				self.channels[id].is_protected = ('protected' in channel) and (int(channel['protected']))
 				for t,s,e in self.channel_epg_current(channel):
-					self.channels[id].epg = EpgEntry(t, s, e)
-					self.channels[id].nepg = EpgEntry(t, s, e)
+					self.channels[id].epg = (t, s, e)
 
 	def getStreamUrl(self, cid, pin, time = None):
 		params = {"cid": cid, "time_shift": self.time_shift}
-		if self.channels[cid].is_protected:
-			params["protect_code"] = self.protect_code
+		if self.channels[cid].is_protected and pin:
+			params["protect_code"] = pin
 		if time:
 			params["uts"] = time.strftime("%s")
 		response = self.getData(self.site+"/get_url_tv?"+urllib.urlencode(params), "stream url")
@@ -175,8 +172,7 @@ class Ktv(OzoAPI, AbstractStream):
 		for prog in response['channels']:
 			id = prog['id']
 			for t,s,e in self.channel_epg_current(prog):
-				self.channels[id].epg = EpgEntry(t, s, e)
-                                self.channels[id].nepg = EpgEntry(t, s, e)
+				self.channels[id].epg = (t, s, e)
 	
 	def getCurrentEpg(self, cid):
 		return self.getChannelsEpg([cid])
