@@ -15,7 +15,7 @@ import cookielib, urllib, urllib2 #TODO: optimize imports
 from json import loads as json_loads
 from datetime import datetime
 from md5 import md5
-from . import tdSec, secTd, setSyncTime, syncTime, Channel, Timezone, APIException
+from . import tdSec, secTd, setSyncTime, syncTime, Timezone, APIException
 
 # hack !
 class JsonWrapper(dict):
@@ -123,7 +123,7 @@ class e2iptv(OzoAPI, AbstractStream):
                 txt   = e['title'].encode('utf-8') + '\n' + e['info'].encode('utf-8')
                 start = datetime.fromtimestamp(int(e['begin'])+ts_fix)
                 end   = datetime.fromtimestamp(int(e['end'])+ts_fix)
-                return (txt,start,end)
+                return ({"text":txt,"start":start,"end":end})
 
 	def channel_day_epg(self, channel):
 		if not 'epg' in channel: return
@@ -132,7 +132,7 @@ class e2iptv(OzoAPI, AbstractStream):
 			else: ts_fix =self.time_shift
 			yield self.epg_entry(e, ts_fix)
 
-	def channel_epg_current(self, channel):
+	def on_channelEpgCurrent(self, channel):
 		if not 'epg' in channel: return
 		ch = channel['epg']
 		if 'time_shift' in ch: ts_fix = int(ch["time_shift"])
@@ -141,24 +141,29 @@ class e2iptv(OzoAPI, AbstractStream):
 			if not typ in ch: continue 
 			yield self.epg_entry(ch[typ], ts_fix)
 
-	def setChannelsList(self):
+	def on_setChannelsList(self):
 		params = urllib.urlencode({"with_epg":''}) 
 		response = self.getData(self.site+"/get_list_tv?"+params, "channels list")
 		
 		for group in response['groups']:
-			gid = group['id']
-			groupname = group['name'].encode('utf-8')
+			group_id = group['id']
+			group_name = group['name'].encode('utf-8')
 			for channel in group['channels']: 
-				id   = channel['id']
-				name = channel['name'].encode('utf-8')
-				num  = channel['number'] 
-				archive = ('has_archive' in channel) and (int(channel['has_archive']))
-				self.channels[id] = Channel(name, groupname, num, gid, archive)
-				self.channels[id].is_protected = ('protected' in channel) and (int(channel['protected']))
-				for t,s,e in self.channel_epg_current(channel):
-					self.channels[id].epg = (t, s, e)
+				id          = channel['id']
+				name        = channel['name'].encode('utf-8')
+				number      = channel['number'] 
+				has_archive = ('has_archive' in channel) and (int(channel['has_archive']))
+				is_protected = ('protected' in channel) and (int(channel['protected']))
+				yield ({"id":id,
+					"group_id":group_id,
+					"group_name":group_name,
+					"name":name,
+					"number":number,
+					"has_archive":has_archive,
+					"is_protected":is_protected,
+					"epg_data_opaque":channel})
 
-	def getStreamUrl(self, cid, pin, time = None):
+	def on_getStreamUrl(self, cid, pin, time = None):
 		params = {"cid": cid, "time_shift": self.time_shift}
 		if self.channels[cid].is_protected and pin:
 			params["protect_code"] = pin
@@ -167,15 +172,16 @@ class e2iptv(OzoAPI, AbstractStream):
 		response = self.getData(self.site+"/get_url_tv?"+urllib.urlencode(params), "stream url")
 		return response["url"].encode("utf-8")
 	
-	def getChannelsEpg(self, cids):
+	def on_getChannelsEpg(self, cids):
 		response = self.getData(self.site+"/get_epg_current?"+urllib.urlencode({"cid":','.join(str(c) for c in cids)}), "getting epg of all channels")
 		for prog in response['channels']:
 			id = prog['id']
-			for t,s,e in self.channel_epg_current(prog):
-				self.channels[id].epg = (t, s, e)
+			for e in self.on_channelEpgCurrent(prog):
+				e['id']=id
+				yield e
 	
-	def getCurrentEpg(self, cid):
-		return self.getChannelsEpg([cid])
+	def on_getCurrentEpg(self, cid):
+		return self.on_getChannelsEpg([cid])
 	
 	def on_getDayEpg(self, id, dt):
 		params = {"cid": id,
