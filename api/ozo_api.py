@@ -87,24 +87,41 @@ class OzoAPI(AbstractAPI):
 	 	return 0
 				
 	def getData(self, url, name, fromauth=None):
+		reauthOnError = True
 		if not self.SID and not fromauth:
+			reauthOnError = False
 			self.authorize()
-		self.SID = False 
 		self.trace("Getting %s (%s)" % (name, url))
 		try:
 			reply = self.opener.open(url).read()
 		except:
+			self.SID = False
 			reply = ""
 		#print reply
 		try:
 			json = loads(reply)
 		except:
+			self.SID = False
 			raise APIException("Failed to parse json response")
 		if 'error' in json:
+			self.SID = False
+			if reauthOnError and not fromauth:
+				return self.getData(url, name)
 			error = json['error']
 			raise APIException(error['code'].encode('utf-8') + ": " + error['message'].encode('utf-8'))
-		self.SID = True
 		return json 
+
+	def getChannelsData(self):
+		params = urllib.urlencode({"with_epg":''})
+		return self.getData(self.site+"/get_list_tv?"+params, "channels list")
+
+	def getUrlData(self, cid, pin, time):
+		params = {"cid": cid, "time_shift": self.time_shift}
+		if self.channels[cid].is_protected and pin:
+			params["protect_code"] = pin
+		if time:
+			params["uts"] = time.strftime("%s")
+                return self.getData(self.site+"/get_url_tv?"+urllib.urlencode(params), "stream url")
 
 	
 class e2iptv(OzoAPI, AbstractStream):
@@ -112,8 +129,6 @@ class e2iptv(OzoAPI, AbstractStream):
 	iName = "OzoTV"
 	MODE = MODE_STREAM
 	HAS_PIN = True
-	
-	locked_cids = [155, 156, 157, 158, 159]
 	
 	def __init__(self, username, password):
 		OzoAPI.__init__(self, username, password)
@@ -142,10 +157,9 @@ class e2iptv(OzoAPI, AbstractStream):
 			yield self.epg_entry(ch[typ], ts_fix)
 
 	def on_setChannelsList(self):
-		params = urllib.urlencode({"with_epg":''}) 
-		response = self.getData(self.site+"/get_list_tv?"+params, "channels list")
+		channelsData = self.getChannelsData()
 		
-		for group in response['groups']:
+		for group in channelsData['groups']:
 			group_id = group['id']
 			group_name = group['name'].encode('utf-8')
 			for channel in group['channels']: 
@@ -164,12 +178,7 @@ class e2iptv(OzoAPI, AbstractStream):
 					"epg_data_opaque":channel})
 
 	def on_getStreamUrl(self, cid, pin, time = None):
-		params = {"cid": cid, "time_shift": self.time_shift}
-		if self.channels[cid].is_protected and pin:
-			params["protect_code"] = pin
-		if time:
-			params["uts"] = time.strftime("%s")
-		response = self.getData(self.site+"/get_url_tv?"+urllib.urlencode(params), "stream url")
+		response = self.getUrlData(cid, pin, time)
 		return response["url"].encode("utf-8")
 	
 	def on_getChannelsEpg(self, cids):

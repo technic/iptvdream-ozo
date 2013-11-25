@@ -1,6 +1,6 @@
 Package: enigma2-plugin-extensions-e2iptv-ozo
-Version: 1.0.0
-Depends: enigma2-plugin-extensions-e2iptv (>= 1.0.0)
+Version: 2.0.0
+Depends: enigma2-plugin-extensions-e2iptv (>= 2.0.0)
 Description: enigma2 iptv ozo player
 Section: extra
 Priority: optional
