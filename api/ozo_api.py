@@ -11,26 +11,9 @@
 # version.
 
 from abstract_api import MODE_STREAM, AbstractAPI, AbstractStream
-import cookielib, urllib, urllib2 #TODO: optimize imports
-from json import loads as json_loads
 from datetime import datetime
 from md5 import md5
 from . import tdSec, secTd, setSyncTime, syncTime, Timezone, APIException
-
-# hack !
-class JsonWrapper(dict):
-	def find(self, key):
-		if isinstance(self[key], dict):
-			return JsonWrapper(self[key])
-		if isinstance(self[key], list):
-			return map(JsonWrapper, self[key])
-		else:
-			return self[key]
-	def findtext(self, key):
-		return unicode(self[key])
-                                                                                                               
-def loads(jsonstr):
-	return JsonWrapper(json_loads(jsonstr))
 	
 class OzoAPI(AbstractAPI):
 	
@@ -40,37 +23,23 @@ class OzoAPI(AbstractAPI):
 	site = "http://file-teleport.com/iptv/api/v1/json"
 
 	def __init__(self, username, password):
-		AbstractAPI.__init__(self, username, password)
-		
+		AbstractAPI.__init__(self, username, password)		
 		self.time_shift = 0
 		self.time_zone = 0
-
-		self.cookiejar = cookielib.CookieJar()
-		self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cookiejar))
-		self.opener.addheaders = [('User-Agent', 'Mozilla/5.0 technic-plugin-1.5'),
-					('Connection', 'Close'), 
-					('Accept', 'application/json, text/javascript, */*'),
-					('X-Requested-With', 'XMLHttpRequest'), ('Content-Type', 'application/x-www-form-urlencoded')]
 		
 	def start(self):
 		self.authorize()
 	
 	def setTimeShift(self, timeShift): #in hours #sets timezone also
 		return
-		params = {'var': 'time_shift',
-				  'val': timeShift }
-		return self.getData(self.site+"/set?"+urllib.urlencode(params), "setting time shift to %s" % timeShift)
+		params = {'var': 'time_shift', 'val': timeShift }
+		return self.getJsonData(self.site+"/set?", params, "setting time shift to %s" % timeShift)
 
 	def authorize(self):
 		self.trace("Username is "+self.username)
-		self.cookiejar.clear()
 		md5pass = md5(md5(self.username).hexdigest() + md5(self.password).hexdigest()).hexdigest()
-		params = urllib.urlencode({"login" : self.username,
-					"pass" : md5pass,
-					"with_cfg" : '',
-					"with_acc" : '' })
-		self.trace("Authorization started (%s)" % (self.site+"/login?"+ params))
-		response = self.getData(self.site+"/login?"+ params, "authorize", 1)
+		params = {"login":self.username, "pass":md5pass, "with_cfg":'', "with_acc":'' }
+		response = self.getJsonData(self.site+"/login?", params, "authorize", 1)
 		
 		if 'sid' in response:
 			self.sid = response['sid'].encode("utf-8")
@@ -86,34 +55,9 @@ class OzoAPI(AbstractAPI):
 			self.packet_expire = datetime.fromtimestamp(int(response['packet_expire'])) 
 	 	return 0
 				
-	def getData(self, url, name, fromauth=None):
-		reauthOnError = True
-		if not self.SID and not fromauth:
-			reauthOnError = False
-			self.authorize()
-		self.trace("Getting %s (%s)" % (name, url))
-		try:
-			reply = self.opener.open(url).read()
-		except:
-			self.SID = False
-			reply = ""
-		#print reply
-		try:
-			json = loads(reply)
-		except:
-			self.SID = False
-			raise APIException("Failed to parse json response")
-		if 'error' in json:
-			self.SID = False
-			if reauthOnError and not fromauth:
-				return self.getData(url, name)
-			error = json['error']
-			raise APIException(error['code'].encode('utf-8') + ": " + error['message'].encode('utf-8'))
-		return json 
-
 	def getChannelsData(self):
-		params = urllib.urlencode({"with_epg":''})
-		return self.getData(self.site+"/get_list_tv?"+params, "channels list")
+		params = {"with_epg":''}
+		return self.getJsonData(self.site+"/get_list_tv?", params, "channels list")
 
 	def getUrlData(self, cid, pin, time):
 		params = {"cid": cid, "time_shift": self.time_shift}
@@ -121,7 +65,7 @@ class OzoAPI(AbstractAPI):
 			params["protect_code"] = pin
 		if time:
 			params["uts"] = time.strftime("%s")
-                return self.getData(self.site+"/get_url_tv?"+urllib.urlencode(params), "stream url")
+		return self.getJsonData(self.site+"/get_url_tv?", params, "stream url")
 
 	
 class e2iptv(OzoAPI, AbstractStream):
@@ -134,11 +78,11 @@ class e2iptv(OzoAPI, AbstractStream):
 		OzoAPI.__init__(self, username, password)
 		AbstractStream.__init__(self)
 
-        def epg_entry(self, e, ts_fix):
-                txt   = e['title'].encode('utf-8') + '\n' + e['info'].encode('utf-8')
-                start = datetime.fromtimestamp(int(e['begin'])+ts_fix)
-                end   = datetime.fromtimestamp(int(e['end'])+ts_fix)
-                return ({"text":txt,"start":start,"end":end})
+	def epg_entry(self, e, ts_fix):
+		txt   = e['title'].encode('utf-8') + '\n' + e['info'].encode('utf-8')
+		start = datetime.fromtimestamp(int(e['begin'])+ts_fix)
+		end   = datetime.fromtimestamp(int(e['end'])+ts_fix)
+		return ({"text":txt,"start":start,"end":end})
 
 	def channel_day_epg(self, channel):
 		if not 'epg' in channel: return
@@ -182,7 +126,7 @@ class e2iptv(OzoAPI, AbstractStream):
 		return response["url"].encode("utf-8")
 	
 	def on_getChannelsEpg(self, cids):
-		response = self.getData(self.site+"/get_epg_current?"+urllib.urlencode({"cid":','.join(str(c) for c in cids)}), "getting epg of all channels")
+		response = self.getJsnonData(self.site+"/get_epg_current?", {"cid":','.join(str(c) for c in cids)}, "getting epg of all channels")
 		for prog in response['channels']:
 			id = prog['id']
 			for e in self.on_channelEpgCurrent(prog):
@@ -196,6 +140,6 @@ class e2iptv(OzoAPI, AbstractStream):
 		params = {"cid": id,
 			  "from_uts": datetime(dt.year, dt.month, dt.day).strftime('%s'),
 			  "hours" : 24}
-		response = self.getData(self.site+"/get_epg?"+urllib.urlencode(params), "EPG for channel %s" % id)
+		response = self.getJsonData(self.site+"/get_epg?", params, "EPG for channel %s" % id)
 		for channel in response['channels']:
 			yield self.channel_day_epg(channel)
