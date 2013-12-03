@@ -21,7 +21,7 @@ $(PYC): $(SOURCES)
 	./bin/py-compile $(SOURCES)
 	rm $(SOURCES)
 
-make_ipk:$(PYC) 
+make_ipk:
 	if ! test -d packages; \
 		then mkdir packages; fi; \
 	dpkg-deb -b build  packages;

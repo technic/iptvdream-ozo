@@ -29,11 +29,6 @@ class OzoAPI(AbstractAPI):
 		
 	def start(self):
 		self.authorize()
-	
-	def setTimeShift(self, timeShift): #in hours #sets timezone also
-		return
-		params = {'var': 'time_shift', 'val': timeShift }
-		return self.getJsonData(self.site+"/set?", params, "setting time shift to %s" % timeShift)
 
 	def authorize(self):
 		self.trace("Username is "+self.username)
@@ -126,7 +121,7 @@ class e2iptv(OzoAPI, AbstractStream):
 		return response["url"].encode("utf-8")
 	
 	def on_getChannelsEpg(self, cids):
-		response = self.getJsnonData(self.site+"/get_epg_current?", {"cid":','.join(str(c) for c in cids)}, "getting epg of all channels")
+		response = self.getJsonData(self.site+"/get_epg_current?", {"cid":','.join(str(c) for c in cids)}, "getting epg of all channels")
 		for prog in response['channels']:
 			id = prog['id']
 			for e in self.on_channelEpgCurrent(prog):
