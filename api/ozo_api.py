@@ -38,7 +38,6 @@ class OzoAPI(AbstractAPI):
 		
 		if 'sid' in response:
 			self.sid = response['sid'].encode("utf-8")
-			self.SID = True
 	
 		if 'settings' in response:
 			if 'time_shift' in response['settings']:
@@ -137,4 +136,4 @@ class e2iptv(OzoAPI, AbstractStream):
 			  "hours" : 24}
 		response = self.getJsonData(self.site+"/get_epg?", params, "EPG for channel %s" % id)
 		for channel in response['channels']:
-			yield self.channel_day_epg(channel)
+			return self.channel_day_epg(channel)
