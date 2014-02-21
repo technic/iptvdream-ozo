@@ -29,3 +29,5 @@ make_ipk:
 	for file in `ls |grep deb`; do \
 		mv $$file `echo $$file |sed s/deb/ipk/`; \
 	done
+
+all: prepare_build make_ipk

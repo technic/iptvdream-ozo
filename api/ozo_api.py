@@ -65,6 +65,7 @@ class OzoAPI(AbstractAPI):
 class e2iptv(OzoAPI, AbstractStream):
 	
 	iName = "OzoTV"
+	NEXT_API = "OzoMovies"
 	MODE = MODE_STREAM
 	HAS_PIN = True
 	
