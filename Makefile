@@ -14,10 +14,10 @@ clean_build:
 
 prepare_build: clean_build make_build
 	cp -rf api build/${extensions_path}/${plugin_name}/
-	cp OzoTV.png build/${extensions_path}/${plugin_name}/
+	cp *.png build/${extensions_path}/${plugin_name}/
 	cp -rf DEBIAN build/
 
-$(PYC): $(SOURCES)
+compile: $(SOURCES)
 	./bin/py-compile $(SOURCES)
 	rm $(SOURCES)
 

@@ -121,7 +121,8 @@ class e2iptv(OzoAPI, AbstractStream):
 		return response["url"].encode("utf-8")
 	
 	def on_getChannelsEpg(self, cids):
-		response = self.getJsonData(self.site+"/get_epg_current?", {"cid":','.join(str(c) for c in cids)}, "getting epg of all channels")
+        cstr = ','.join(str(c) for c in cids)
+		response = self.getJsonData(self.site+"/get_epg_current?", {"cid": cstr}, "epg of channels: " + cstr)
 		for prog in response['channels']:
 			id = prog['id']
 			for e in self.on_channelEpgCurrent(prog):

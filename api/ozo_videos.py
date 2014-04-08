@@ -40,7 +40,6 @@ class e2iptv(OzoAPI):
 		if len(genre):
 			params['genre'] = "|".join(genre)
 		response = self.getJsonData(self.site+"/get_list_movie?", params, "getting video list by type %s" % stype)
-		print "[OzoMovies] %s" % response
 		videos_count = int(response['options']['count'])
 		
 		self.currentPageIds = []
@@ -49,7 +48,7 @@ class e2iptv(OzoAPI):
 			self.currentPageIds += [vid]
 			video = Video(v['title'].encode('utf-8'))
 			video.name_orig = v['title'].encode('utf-8')
-			video.descr = '' #unescapeEntities(v['description']).encode('utf-8')
+			video.descr = unescapeEntities(v['description']).encode('utf-8')
 			video.image = v['pic'].encode('utf-8')
 			video.year = v['year'].encode('utf-8')
 			video.rate_imdb = 0 #floatConvert(v.findtext('rate_imdb'))
