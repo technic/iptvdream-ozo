@@ -20,20 +20,21 @@ class OzoAPI(AbstractAPI):
 	iProvider = "ozo"
 	NUMBER_PASS = False
 	
-	site = "http://file-teleport.com/iptv/api/v1/json"
+	site = "http://core.ozo.tv/iptv/api/v1/json"
 
 	def __init__(self, username, password):
 		AbstractAPI.__init__(self, username, password)		
 		self.time_shift = 0
 		self.time_zone = 0
+		self.servertime = 0
 		
 	def start(self):
 		self.authorize()
 
-	def authorize(self):
+	def authorize(self, params=None):
 		self.trace("Username is "+self.username)
 		md5pass = md5(md5(self.username).hexdigest() + md5(self.password).hexdigest()).hexdigest()
-		params = {"login":self.username, "pass":md5pass, "with_cfg":'', "with_acc":'' }
+		params = {"login":self.username, "pass":md5pass, "with_cfg":'', "with_acc":'', "servertime":self.servertime }
 		response = self.getJsonData(self.site+"/login?", params, "authorize", 1)
 		
 		if 'sid' in response:
@@ -47,14 +48,16 @@ class OzoAPI(AbstractAPI):
 				
 		if 'packet_expire' in response:
 			self.packet_expire = datetime.fromtimestamp(int(response['packet_expire'])) 
-	 	return 0
+		if 'servertime' in response:
+			self.servertime = response['servertime']
+	 	return params
 				
 	def getChannelsData(self):
-		params = {"with_epg":''}
+		params = {"with_epg":'true', 'servertime':self.servertime}
 		return self.getJsonData(self.site+"/get_list_tv?", params, "channels list")
 
 	def getUrlData(self, cid, pin, time):
-		params = {"cid": cid, "time_shift": self.time_shift}
+		params = {"cid": cid, "time_shift": self.time_shift, 'servertime':self.servertime}
 		if self.channels[cid].is_protected and pin:
 			params["protect_code"] = pin
 		if time:
@@ -97,6 +100,9 @@ class e2iptv(OzoAPI, AbstractStream):
 
 	def on_setChannelsList(self):
 		channelsData = self.getChannelsData()
+
+		if 'servertime' in channelsData:
+			self.servertime = channelsData['servertime']
 		
 		for group in channelsData['groups']:
 			group_id = group['id']
@@ -118,14 +124,18 @@ class e2iptv(OzoAPI, AbstractStream):
 
 	def on_getStreamUrl(self, cid, pin, time = None):
 		response = self.getUrlData(cid, pin, time)
+		if 'servertime' in response:
+			self.servertime = response['servertime']
 		return response["url"].encode("utf-8")
 	
 	def on_getChannelsEpg(self, cids):
-        cstr = ','.join(str(c) for c in cids)
+		cstr = ','.join(str(c) for c in cids)
 		response = self.getJsonData(self.site+"/get_epg_current?", {"cid": cstr}, "epg of channels: " + cstr)
+		if 'servertime' in response:
+			self.servertime = response['servertime']
 		for prog in response['channels']:
 			id = prog['id']
-			for e in self.on_channelEpgCurrent(prog):
+			for e in self.on_channelEpgCurrent({'epg':prog}):
 				e['id']=id
 				yield e
 	
@@ -137,5 +147,7 @@ class e2iptv(OzoAPI, AbstractStream):
 			  "from_uts": datetime(dt.year, dt.month, dt.day).strftime('%s'),
 			  "hours" : 24}
 		response = self.getJsonData(self.site+"/get_epg?", params, "EPG for channel %s" % id)
+		if 'servertime' in response:
+			self.servertime = response['servertime']
 		for channel in response['channels']:
 			return self.channel_day_epg(channel)
