@@ -13,7 +13,7 @@
 from abstract_api import MODE_STREAM, AbstractAPI, AbstractStream
 from datetime import datetime
 from md5 import md5
-from . import tdSec, secTd, setSyncTime, syncTime, Timezone, APIException
+from utils import tdSec, secTd, setSyncTime, syncTime, Timezone, APIException
 	
 class OzoAPI(AbstractAPI):
 	
@@ -87,6 +87,7 @@ class e2iptv(OzoAPI, AbstractStream):
 		for e in channel['epg']:
 			if 'time_shift' in e: ts_fix = int(e["time_shift"])
 			else: ts_fix =self.time_shift
+			if not (('begin' in e) and e['begin'] and ('end' in e) and e['end']): continue
 			yield self.epg_entry(e, ts_fix)
 
 	def on_channelEpgCurrent(self, channel):
@@ -96,7 +97,9 @@ class e2iptv(OzoAPI, AbstractStream):
 		else: ts_fix =self.time_shift
 		for typ in ['current', 'next']:
 			if not typ in ch: continue 
-			yield self.epg_entry(ch[typ], ts_fix)
+			e = ch[typ]
+			if not (('begin' in e) and e['begin'] and ('end' in e) and e['end']): continue
+			yield self.epg_entry(e, ts_fix)
 
 	def on_setChannelsList(self):
 		channelsData = self.getChannelsData()
