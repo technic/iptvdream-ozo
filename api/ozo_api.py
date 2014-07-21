@@ -13,7 +13,7 @@
 from abstract_api import MODE_STREAM, AbstractAPI, AbstractStream
 from datetime import datetime
 from md5 import md5
-from utils import tdSec, secTd, setSyncTime, syncTime, Timezone, APIException
+from . import tdSec, secTd, setSyncTime, syncTime, Timezone, APIException
 	
 class OzoAPI(AbstractAPI):
 	
