@@ -14,8 +14,6 @@ from abstract_api import MODE_VIDEOS
 from ozo_api import OzoAPI
 from . import tdSec, secTd, syncTime, Bouquet, Video, unescapeEntities
 
-VIDEO_CACHING = True #TODO: cache...??
-
 class e2iptv(OzoAPI):
 	
 	MODE = MODE_VIDEOS
@@ -31,13 +29,12 @@ class e2iptv(OzoAPI):
 		self.currentPageIds = []
 	
 	def getVideos(self, stype='last', page=1, genre=[],  limit=19, query=''):
-		if not VIDEO_CACHING:
-			self.videos = {}
+		self.videos = {}
 						
 		params = {"limit" : limit,
 			"extended": 1,	
 			"page" : page }
-		if len(genre):
+		if genre and len(genre):
 			params['genre'] = "|".join(genre)
 		response = self.getJsonData(self.site+"/get_list_movie?", params, "getting video list by type %s" % stype)
 		videos_count = int(response['options']['count'])
@@ -56,11 +53,13 @@ class e2iptv(OzoAPI):
 			video.rate_mpaa = '' #v.findtext('rate_mpaa')
 			video.country = v['country'].encode('utf-8')
 			video.genre = v['genre'].encode('utf-8')
-			video.length = int(v['time'].encode('utf-8'))
+			video.length = int(v['time'].encode('utf-8')) / 60
 			self.videos[vid] = video				
 		return videos_count 
 	
 	def getVideoInfo(self, vid):
+		if not vid in self.videos.keys():
+			return False
 		video = self.videos[vid] 
 		video.director = ''
 		video.scenario = ''
@@ -71,6 +70,7 @@ class e2iptv(OzoAPI):
 		video.files = [vid]
 		self.filmFiles[vid] = {'format':'', 'length': video.length, 'name': video.name_orig,'title': video.name_orig, 'traks':['default']}
 		self.videos[vid]= video
+		return True
 	
 	def getVideoUrl(self, cid):
 		params = {"cid": cid}
@@ -79,9 +79,7 @@ class e2iptv(OzoAPI):
 	
 	def getVideoGenres(self):
 		response = self.getJsonData(self.site+"/get_gql_movie?", {}, "getting genres list")		
-		self.video_genres = []
-		for genre in response['groups']['genre']:
-			self.video_genres += [{"id": genre['id'], "name": genre['title'].encode('utf-8')}]
+		self.video_genres = [{"id": genre['id'], "name": genre['title'].encode('utf-8')} for genre in response['groups']['genre']]
 	
 	def getPosterPath(self, vid, local=False):
 		if local:
@@ -93,8 +91,8 @@ class e2iptv(OzoAPI):
 	def buildVideoBouquet(self):
 		movs = Bouquet(Bouquet.TYPE_MENU, 'films')
 		for x in self.currentPageIds:
-			 mov = Bouquet(Bouquet.TYPE_MENU, x, self.videos[x].name, self.videos[x].year) #two sort args [name, year]
-			 movs.append(mov)
+			mov = Bouquet(Bouquet.TYPE_MENU, x, self.videos[x].name, self.videos[x].year) #two sort args [name, year]
+			movs.append(mov)
 		return movs
 	
 	def buildEpisodesBouquet(self, vid):
