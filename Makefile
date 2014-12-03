@@ -1,6 +1,5 @@
 plugin_name=e2iptv
 extensions_path=/usr/lib/enigma2/python/Plugins/Extensions
-skins_path=/usr/share/enigma2
 
 SOURCES := $(shell find build -name '*.py')
 
@@ -24,7 +23,7 @@ compile: $(SOURCES)
 make_ipk:
 	if ! test -d packages; \
 		then mkdir packages; fi; \
-	dpkg-deb -b build  packages;
+	dpkg-deb -b -Zgzip build  packages;
 	cd packages; \
 	for file in `ls |grep deb`; do \
 		mv $$file `echo $$file |sed s/deb/ipk/`; \
