@@ -2,6 +2,7 @@
 
 # iptvdream build
 build-*/
+src
 
 # C extensions
 *.so

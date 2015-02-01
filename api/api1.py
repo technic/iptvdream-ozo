@@ -10,6 +10,8 @@
 # Software Foundation; either version 2, or (at your option) any later
 # version.
 
+VERSION = "2.3.1"
+
 from abstract_api import MODE_STREAM, MODE_VIDEOS, AbstractAPI, AbstractStream
 from datetime import datetime
 from md5 import md5
@@ -24,7 +26,7 @@ class OzoAPI(AbstractAPI):
 	site = "http://core.ozo.tv/iptv/api/v1/json"
 
 	def __init__(self, username, password):
-		AbstractAPI.__init__(self, username, password)		
+		AbstractAPI.__init__(self, username, password, VERSION)
 		self.time_shift = 0
 		self.time_zone = 0
 		self.servertime = 0

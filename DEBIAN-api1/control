@@ -1,0 +1,9 @@
+Package: enigma2-plugin-extensions-iptvdream-api1
+Version:
+Depends: enigma2-plugin-extensions-iptvdream (>= 2.3.3)
+Description: enigma2 iptvdream common api
+Section: extra
+Priority: optional
+Maintainer: Alex Maystrenko <alexeytech@gmail.com>
+License: GNU GPLv2
+Architecture:

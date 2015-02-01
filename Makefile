@@ -1,32 +1,24 @@
-plugin_name=e2iptv
-extensions_path=/usr/lib/enigma2/python/Plugins/Extensions
+pyfiles_mixtv := $(shell find -name '*.py' -type f |grep mixtv)
+pyfiles_ozo := $(shell find -name '*.py' -type f |grep ozo)
+pyfiles_api1 := api/api1.py
 
-SOURCES := $(shell find build -name '*.py')
+controldir_mixtv = DEBIAN-mixtv
+controldir_ozo = DEBIAN-ozo
+controldir_api1 = DEBIAN-api1
 
-make_build:
-	if ! test -d build; then \
-		mkdir -p "build/${extensions_path}/${plugin_name}"; \
-	fi
+scanver_file_ozo := api/api1.py
+scanver_file_mixtv := api/api1.py
+scanver_file_api1 := api/api1.py
 
-clean_build:
-	if test -d build; then rm -rf build; fi
+datafiles_ozo = OzoMovies.png OzoTV.png
+datafiles_mixtv = MIXTV.png MIXTVMovies.png
 
-prepare_build: clean_build make_build
-	cp -rf api build/${extensions_path}/${plugin_name}/
-	cp *.png build/${extensions_path}/${plugin_name}/
-	cp -rf DEBIAN build/
+all: ipk
 
-compile: $(SOURCES)
-	./bin/py-compile $(SOURCES)
-	rm $(SOURCES)
+src/%:
+	ln -s . src
 
-make_ipk:
-	if ! test -d packages; \
-		then mkdir packages; fi; \
-	dpkg-deb -b -Zgzip build  packages;
-	cd packages; \
-	for file in `ls |grep deb`; do \
-		mv $$file `echo $$file |sed s/deb/ipk/`; \
-	done
-
-all: prepare_build make_ipk
+include ../iptvdream.mk
+$(call doipk,ozo)
+$(call doipk,mixtv)
+$(call doipk,api1)

@@ -1,0 +1,9 @@
+Package: enigma2-plugin-extensions-iptvdream-mixtv
+Version:
+Depends: enigma2-plugin-extensions-iptvdream-api1
+Description: enigma2 iptvdream mixtv plugin
+Section: extra
+Priority: optional
+Maintainer: Alex Maystrenko <alexeytech@gmail.com>
+License: GNU GPLv2
+Architecture:
