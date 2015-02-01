@@ -1,4 +1,4 @@
-e2iptv-ozo
+IPtvDream-ozo
 ==========
 
 OzoTV rest api implementation
