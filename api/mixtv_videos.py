@@ -13,7 +13,7 @@
 from api1 import OzoVideos
 
 class e2iptv(OzoVideos):
-	iProvider = "ozo"
-	site = "http://core.ozo.tv/iptv/api/v1/json"
+	iProvider = "mixtv"
+	site = "http://core.mixip.tv/iptv/api/v1/json"
 	iName = "MIXTVMovies"
 	NEXT_API = "MIXTV"

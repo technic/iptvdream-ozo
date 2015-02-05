@@ -10,7 +10,7 @@
 # Software Foundation; either version 2, or (at your option) any later
 # version.
 
-VERSION = "2.3.1"
+VERSION = "2.3.2"
 
 from abstract_api import MODE_STREAM, MODE_VIDEOS, AbstractAPI, AbstractStream
 from datetime import datetime
